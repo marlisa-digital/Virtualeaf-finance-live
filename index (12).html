@@ -2769,6 +2769,12 @@ document.querySelectorAll(".modal-overlay").forEach(function(o) {
   o.addEventListener("click",function(e){if(e.target===o)o.classList.remove("open");});
 });
 initChannelModal();
+
+  // Tambahkan kode ini agar otomatis terhubung saat file dibuka
+if (!localStorage.getItem("vf_api_url")) {
+    localStorage.setItem("vf_api_url", "TEMPEL_URL_WEB_APP_KAMU_DISINI");
+    localStorage.setItem("vf_api_token", "2026-05-04");
+}
 if (API_URL) {
   document.getElementById("api-url-input").value = API_URL;
   if (API_TOKEN) document.getElementById("api-token-input").value = API_TOKEN;
