@@ -14,12 +14,15 @@ const SHEET_NAME_TX    = "Transaksi";
 const SHEET_NAME_KAT   = "Kategori";
 const SHEET_NAME_ASET  = "Aset";
 const SHEET_NAME_SPLIT = "Split";
+const SHEET_NAME_MODAL = "Modal";
 
 // Header columns
 const TX_HEADERS    = ["ID","Tanggal","Keterangan","Kategori ID","Sumber/Tujuan","Tipe","Jumlah","Mata Uang","Catatan","Channel","Project","Industri","Created At"];
 const KAT_HEADERS   = ["ID","Nama","Tipe"];
 const ASET_HEADERS  = ["ID","Jenis","Nama","Nilai","Nilai Awal","Klien","Tanggal","Catatan","Tgl Mulai","Tgl Akhir","Masa (bln)","Created At"];
 const SPLIT_HEADERS = ["TX ID","Tanggal","Keterangan","Klien","Gross","Fee Agency %","Fee Agency","Fee Member","Members JSON","Created At"];
+const MODAL_HEADERS = ["ID","Tanggal","Tipe","Pihak","Jumlah","Catatan","Created At"];
+// Tipe: "setoran" | "prive"
 
 // ── CORS Helper ──
 function cors(output) {
@@ -45,6 +48,7 @@ function doGet(e) {
     if (action === "getKategori")  return cors(getSheet(SHEET_NAME_KAT));
     if (action === "getAset")      return cors(getSheet(SHEET_NAME_ASET));
     if (action === "getSplit")     return cors(getSheet(SHEET_NAME_SPLIT));
+    if (action === "getModal")     return cors(getSheet(SHEET_NAME_MODAL));
     return cors({ok:false, error:"Unknown action"});
   } catch(err) {
     return cors({ok:false, error:err.toString()});
@@ -71,6 +75,8 @@ function doPost(e) {
     if (action === "updateAset")       return cors(updateRow(SHEET_NAME_ASET, payload.id, payload.data));
     if (action === "addSplit")         return cors(addSplit(payload.data));
     if (action === "deleteSplit")      return cors(deleteSplitByTxId(payload.txId));
+    if (action === "addModal")         return cors(addRow(SHEET_NAME_MODAL, payload.data, MODAL_HEADERS));
+    if (action === "deleteModal")      return cors(deleteRow(SHEET_NAME_MODAL, payload.id));
     if (action === "seedKategori")     return cors(seedKategori());
 
     return cors({ok:false, error:"Unknown action: " + action});
@@ -86,6 +92,7 @@ function initSheets() {
   ensureSheet(ss, SHEET_NAME_KAT,   KAT_HEADERS);
   ensureSheet(ss, SHEET_NAME_ASET,  ASET_HEADERS);
   ensureSheet(ss, SHEET_NAME_SPLIT, SPLIT_HEADERS);
+  ensureSheet(ss, SHEET_NAME_MODAL, MODAL_HEADERS);
   return {ok:true, msg:"Sheets initialized"};
 }
 
@@ -158,13 +165,10 @@ function addSplit(data) {
     new Date().toISOString()
   ];
   sh.appendRow(row);
-
-  // Format kolom Gross, Fee Agency, Fee Member sebagai currency
   var lastRow = sh.getLastRow();
   [5, 7, 8].forEach(function(col) {
     sh.getRange(lastRow, col).setNumberFormat('"Rp "#,##0');
   });
-
   return {ok:true, msg:"Split added"};
 }
 
@@ -175,7 +179,6 @@ function deleteSplitByTxId(txId) {
   if (!sh) return {ok:true, msg:"No split sheet"};
   var data = sh.getDataRange().getValues();
   var deleted = 0;
-  // Loop dari bawah supaya index tidak bergeser saat delete
   for (var i = data.length - 1; i >= 1; i--) {
     if (String(data[i][0]) === String(txId)) {
       sh.deleteRow(i + 1);
@@ -207,7 +210,8 @@ function getAllData() {
     transaksi: getSheet(SHEET_NAME_TX).data    || [],
     kategori:  getSheet(SHEET_NAME_KAT).data   || [],
     aset:      getSheet(SHEET_NAME_ASET).data  || [],
-    split:     getSheet(SHEET_NAME_SPLIT).data || []
+    split:     getSheet(SHEET_NAME_SPLIT).data || [],
+    modal:     getSheet(SHEET_NAME_MODAL).data || []
   };
 }
 
@@ -215,16 +219,13 @@ function getAllData() {
 function addRow(sheetName, data, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ensureSheet(ss, sheetName, headers);
-
   var actualHeaders = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-
   var row = actualHeaders.map(function(h) {
     if (h === "Created At") return new Date().toISOString();
     return data[h] !== undefined ? data[h] : "";
   });
   sh.appendRow(row);
-
-  if (sheetName === SHEET_NAME_TX || sheetName === SHEET_NAME_ASET) {
+  if (sheetName === SHEET_NAME_TX || sheetName === SHEET_NAME_ASET || sheetName === SHEET_NAME_MODAL) {
     var lastRow = sh.getLastRow();
     var jumlahCol = actualHeaders.indexOf("Jumlah") + 1;
     if (jumlahCol > 0) {
