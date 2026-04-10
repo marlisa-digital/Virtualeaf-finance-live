@@ -1945,7 +1945,7 @@ function renderNeraca() {
         var pctLeft = Math.min(100, Math.round(a.nilai/(a.nilaiAwal||a.nilai)*100));
         susutBar = "<div style='margin-top:6px'><div style='display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:2px'><span>Sisa prepaid</span><span>"+pctLeft+"%</span></div><div style='height:4px;background:var(--border2);border-radius:2px;overflow:hidden'><div style='width:"+pctLeft+"%;height:100%;background:var(--blue);border-radius:2px'></div></div></div>";
       }
-      var btns = "<button class='btn btn-danger btn-sm' onclick='deleteAset(\""+a.id+"\")''>&#x2715;</button>";
+      var btns = "<button class='btn btn-danger btn-sm' onclick='deleteAset(\""+a.id+"\")'> &#x2715;</button>";
       if (a.jenis === "piutang") {
         btns = "<button class='btn btn-secondary btn-sm' onclick='tandaiLunas(\""+a.id+"\")' style='color:var(--green);border-color:var(--green);font-size:10px'>✓ Lunas</button> "+btns;
       }
