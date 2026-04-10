@@ -1244,8 +1244,12 @@ function removeMemberRow(id) {
 }
 function getMemberRows() {
   var rows = [];
-  document.getElementById("member-rows").querySelectorAll("div[id^='mr-']").forEach(function(row) {
+  var container = document.getElementById("member-rows");
+  // Hanya ambil direct children yang id-nya persis mr-N (bukan mr-N-amt dll)
+  Array.prototype.forEach.call(container.children, function(row) {
+    if (!row.id || !row.id.match(/^mr-\d+$/)) return;
     var inputs = row.querySelectorAll("input");
+    if (!inputs || inputs.length < 2) return;
     var nama = inputs[0].value.trim();
     var pct  = parseFloat(inputs[1].value) || 0;
     if (nama) rows.push({nama: nama, pct: pct});
@@ -1265,8 +1269,11 @@ function updateMemberSummary() {
   var summaryEl = document.getElementById("member-summary");
 
   // Update each row amount
-  document.getElementById("member-rows").querySelectorAll("div[id^='mr-']").forEach(function(row) {
+  var container2 = document.getElementById("member-rows");
+  Array.prototype.forEach.call(container2.children, function(row) {
+    if (!row.id || !row.id.match(/^mr-\d+$/)) return;
     var inputs = row.querySelectorAll("input");
+    if (!inputs || inputs.length < 2) return;
     var pct = parseFloat(inputs[1].value) || 0;
     var amt = Math.round(memberFeeTotal * pct / 100);
     var amtEl = document.getElementById(row.id + "-amt");
