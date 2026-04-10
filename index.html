@@ -1760,7 +1760,8 @@ function renderLabaRugi() {
   // Hitung pendapatan: split fee agency vs fee member vs biasa
   var totalFeeAgency = 0, totalFeeMember = 0;
   var byInKat = {}; // pendapatan biasa (tanpa split) per kategori
-  var totalIn = incomes.reduce(function(s,t){return s+t.jumlah;},0);
+  // totalIn pakai agencyJumlah (fee agency only, bukan gross)
+  var totalIn = incomes.reduce(function(s,t){return s+(t.agencyJumlah||t.jumlah);},0);
 
   incomes.forEach(function(t) {
     var split = jurnalSplit.find(function(s){return s.txId === t.id;});
@@ -1804,7 +1805,7 @@ function renderArusKas() {
   var list = periode==="all" ? transaksi : transaksi.filter(function(t){return t.tanggal.startsWith(periode);});
   var incomes  = list.filter(function(t){return t.tipe==="income";});
   var expenses = list.filter(function(t){return t.tipe==="expense";});
-  var totalIn  = incomes.reduce(function(s,t){return s+t.jumlah;},0);
+  var totalIn  = incomes.reduce(function(s,t){return s+(t.agencyJumlah||t.jumlah);},0);
   var totalOut = expenses.reduce(function(s,t){return s+t.jumlah;},0);
   var h = "<div class='report-section'><div class='report-header'>Arus Kas — "+(periode==="all"?"Semua Waktu":periode)+"</div>";
   h += "<div class='report-row'><span class='report-label' style='font-weight:600'>KAS MASUK</span></div>";
@@ -1865,8 +1866,8 @@ function renderKategori() {
 // NERACA
 // ═══════════════════════════════════════════
 function renderNeraca() {
-  // Kas operasional = income - expense
-  var totalIncome  = transaksi.filter(function(t){return t.tipe==="income";}).reduce(function(s,t){return s+t.jumlah;},0);
+  // Kas operasional = fee agency (bukan gross) - expense
+  var totalIncome  = transaksi.filter(function(t){return t.tipe==="income";}).reduce(function(s,t){return s+(t.agencyJumlah||t.jumlah);},0);
   var totalExpense = transaksi.filter(function(t){return t.tipe==="expense";}).reduce(function(s,t){return s+t.jumlah;},0);
   var tK = totalIncome - totalExpense;
 
