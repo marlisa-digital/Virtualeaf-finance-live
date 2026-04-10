@@ -271,7 +271,7 @@ textarea{resize:vertical;min-height:68px}
       <button class="btn btn-primary" onclick="openModal('modal-transaksi','income')">+ Transaksi Baru</button>
     </div>
     <div class="stat-grid">
-      <div class="stat-card c-blue"><div class="stat-label">Saldo Bersih</div><div class="stat-value" id="stat-saldo">Rp 0</div><div class="stat-sub">Semua waktu</div></div>
+      <div class="stat-card c-blue"><div class="stat-label">Fee Agency (Net)</div><div class="stat-value" id="stat-saldo">Rp 0</div><div class="stat-sub">Income agency − Expense</div></div>
       <div class="stat-card c-green"><div class="stat-label">Total Pemasukan</div><div class="stat-value" id="stat-income">Rp 0</div><div class="stat-sub" id="stat-income-count">0 transaksi</div></div>
       <div class="stat-card c-red"><div class="stat-label">Total Pengeluaran</div><div class="stat-value" id="stat-expense">Rp 0</div><div class="stat-sub" id="stat-expense-count">0 transaksi</div></div>
       <div class="stat-card c-gold"><div class="stat-label">Bulan Ini (Net)</div><div class="stat-value" id="stat-month">Rp 0</div><div class="stat-sub" id="stat-month-label">—</div></div>
@@ -559,7 +559,7 @@ textarea{resize:vertical;min-height:68px}
     <div class="report-section">
       <div class="report-header">◈ Dashboard</div>
       <div class="report-row"><span class="report-label"><b>Fungsi:</b> Ringkasan keuangan secara keseluruhan.</span></div>
-      <div class="report-row"><span class="report-label indent"><b>Saldo Bersih</b> — Total semua income dikurangi semua expense sejak awal.</span></div>
+      <div class="report-row"><span class="report-label indent"><b>Fee Agency (Net)</b> — Total fee agency yang diterima dikurangi semua expense sejak awal.</span></div>
       <div class="report-row"><span class="report-label indent"><b>Bulan Ini (Net)</b> — Selisih income dan expense di bulan berjalan saja.</span></div>
       <div class="report-row"><span class="report-label indent"><b>Transaksi Terbaru</b> — 8 transaksi terakhir yang diinput.</span></div>
       <div class="report-row"><span class="report-label" style="color:var(--muted);font-size:12px">💡 Gunakan tombol "+ Transaksi Baru" di sini untuk input cepat.</span></div>
@@ -1018,6 +1018,13 @@ function applyData(d) {
       members:   members
     };
   });
+  // Patch transaksi income dengan agencyJumlah (fee agency only, bukan gross)
+  // Ini dipakai untuk kalkulasi saldo, bukan untuk display tabel
+  transaksi.forEach(function(t) {
+    if (t.tipe !== "income") return;
+    var split = jurnalSplit.find(function(s){ return s.txId === t.id; });
+    t.agencyJumlah = (split && split.agencyFee > 0) ? split.agencyFee : t.jumlah;
+  });
   transaksi.sort(function(a,b) { return b.tanggal.localeCompare(a.tanggal); });
 }
 
@@ -1377,7 +1384,8 @@ function saveTransaksi() {
     jumlah = grossVal;
   }
 
-  var entry = {id:id, tipe:tipe, tanggal:tanggal, jumlah:jumlah, ket:ket, katId:katId, pihak:pihak, notes:notes, currency:currency, channel:channel, project:project, industri:industri,
+  var agencyJumlah = (tipe==="income" && agencyFee > 0) ? agencyFee : jumlah;
+  var entry = {id:id, tipe:tipe, tanggal:tanggal, jumlah:jumlah, agencyJumlah:agencyJumlah, ket:ket, katId:katId, pihak:pihak, notes:notes, currency:currency, channel:channel, project:project, industri:industri,
     grossVal: grossVal, feePct: feePct, agencyFee: agencyFee, memberFee: memberFee};
   var btn = document.getElementById("btn-save-tx");
   btn.textContent = "Menyimpan..."; btn.disabled = true;
@@ -1487,12 +1495,16 @@ function renderAll() {
 function renderDashboard() {
   var income  = transaksi.filter(function(t) { return t.tipe==="income"; });
   var expense = transaksi.filter(function(t) { return t.tipe==="expense"; });
-  var totalIn  = income.reduce(function(s,t){return s+t.jumlah;},0);
-  var totalOut = expense.reduce(function(s,t){return s+t.jumlah;},0);
+
+  // agencyJumlah sudah di-patch di applyData: agency fee untuk split, jumlah penuh untuk biasa
+  var totalIn  = income.reduce(function(s,t){ return s + (t.agencyJumlah || t.jumlah); }, 0);
+  var totalOut = expense.reduce(function(s,t){ return s + t.jumlah; }, 0);
   var bln = thisMonth();
-  var blnIn  = income.filter(function(t){return t.tanggal.startsWith(bln);}).reduce(function(s,t){return s+t.jumlah;},0);
+  var blnIn = income.filter(function(t){ return t.tanggal.startsWith(bln); })
+                    .reduce(function(s,t){ return s + (t.agencyJumlah || t.jumlah); }, 0);
   var blnOut = expense.filter(function(t){return t.tanggal.startsWith(bln);}).reduce(function(s,t){return s+t.jumlah;},0);
   var blnNet = blnIn - blnOut;
+
   document.getElementById("stat-saldo").textContent = fmt(totalIn-totalOut);
   document.getElementById("stat-saldo").className   = "stat-value " + (totalIn>=totalOut?"c-blue":"c-red");
   document.getElementById("stat-income").textContent = fmt(totalIn);
@@ -1588,8 +1600,8 @@ function renderTransaksi() { renderTable("table-transaksi", filterTx(), TX_COLS_
 function renderPemasukan() {
   var list = transaksi.filter(function(t){return t.tipe==="income";});
   var bln  = thisMonth();
-  document.getElementById("pi-total").textContent = fmt(list.reduce(function(s,t){return s+t.jumlah;},0));
-  document.getElementById("pi-bulan").textContent = fmt(list.filter(function(t){return t.tanggal.startsWith(bln);}).reduce(function(s,t){return s+t.jumlah;},0));
+  document.getElementById("pi-total").textContent = fmt(list.reduce(function(s,t){return s+(t.agencyJumlah||t.jumlah);},0));
+  document.getElementById("pi-bulan").textContent = fmt(list.filter(function(t){return t.tanggal.startsWith(bln);}).reduce(function(s,t){return s+(t.agencyJumlah||t.jumlah);},0));
   document.getElementById("pi-count").textContent = list.length;
   var COLS = TX_COLS_FULL.slice(0,4).concat([
     {fn:function(t){return t.project ? "<span style='font-size:11px;color:var(--blue)'>"+t.project+"</span>" : "<span style='color:var(--muted)'>—</span>";}},
